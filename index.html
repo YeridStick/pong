@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Pong</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(45deg, #1a1a1a, #000);
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            overflow: hidden;
+        }
+
+        #ball {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        .paddle {
+            position: absolute;
+            width: 10px;
+            height: 60px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        #player {
+            left: 20px;
+        }
+
+        #computer {
+            right: 20px;
+        }
+
+        .score {
+            position: absolute;
+            top: 20px;
+            font-size: 32px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        #playerScore {
+            left: 30%;
+        }
+
+        #computerScore {
+            right: 30%;
+        }
+
+        #centerLine {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-50%);
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #00ffff;
+            border: none;
+            color: #000;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #00cccc;
+            transform: scale(1.1);
+        }
+
+        #mobileControls {
+            display: none;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+
+        .mobile-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            border-radius: 12px;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .mobile-btn:active {
+            background: rgba(0, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+
+        @media (max-width: 850px) {
+            #gameContainer {
+                width: 90vw;
+                height: 45vw;
+            }
+
+            #mobileControls {
+                display: block;
+            }
+        }
+
+        .mode-select {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .mode-select button {
+            min-width: 120px;
+            background: linear-gradient(45deg, #00ffff, #0088ff);
+            transition: all 0.3s ease;
+        }
+
+        .mode-select button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ball"></div>
+        <div id="player" class="paddle"></div>
+        <div id="computer" class="paddle"></div>
+        <div id="centerLine"></div>
+        <div id="playerScore" class="score">0</div>
+        <div id="computerScore" class="score">0</div>
+
+        <div id="startScreen">
+            <h1>PONG</h1>
+            <div class="mode-select">
+                <button onclick="startGame('singlePlayer')">1 Jugador</button>
+                <button onclick="startGame('multiPlayer')">2 Jugadores</button>
+            </div>
+            <div class="controls-info" style="margin-top: 20px; text-align: center;">
+                <p>Jugador 1: W S</p>
+                <p>Jugador 2: ↑ ↓</p>
+            </div>
+        </div>
+        <div id="gameOverScreen" style="display: none;">
+            <h1 id="winner">Game Over!</h1>
+            <p id="finalScore">Score: 0 - 0</p>
+            <button onclick="startGame(gameMode)">Play Again</button> <!-- Actualizamos esto -->
+            <button onclick="showStartScreen()">Change Mode</button> <!-- Opcional: Añadir botón para cambiar modo -->
+        </div>
+    </div>
+
+    <div id="mobileControls">
+        <div class="controls-row">
+            <button class="mobile-btn" id="upBtn">↑</button>
+            <button class="mobile-btn" id="downBtn">↓</button>
+        </div>
+    </div>
+
+    <script>
+        const ball = document.getElementById('ball');
+        const player = document.getElementById('player');
+        const computer = document.getElementById('computer');
+        const playerScoreElement = document.getElementById('playerScore');
+        const computerScoreElement = document.getElementById('computerScore');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winnerElement = document.getElementById('winner');
+        const finalScoreElement = document.getElementById('finalScore');
+
+        let ballX = 400;
+        let ballY = 200;
+        let ballSpeedX = 5;
+        let ballSpeedY = 5;
+        let playerY = 170;
+        let computerY = 170;
+        let playerScore = 0;
+        let computerScore = 0;
+        let gameInterval;
+        let keysPressed = {};
+        const PADDLE_SPEED = 5;
+        const WINNING_SCORE = 5;
+
+        let gameMode = 'singlePlayer';
+        let computerSpeed = 4;
+
+        function startGame(mode = 'singlePlayer') {
+            gameMode = mode;
+
+            // Reiniciar posiciones y puntuaciones
+            ballX = 400;
+            ballY = 200;
+            ballSpeedX = 5;
+            ballSpeedY = 5;
+            playerY = 170;
+            computerY = 170;
+            playerScore = 0;
+            computerScore = 0;
+            updateScore();
+            
+            // Ocultar pantallas
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Iniciar el juego
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(updateGame, 1000/60);
+        }
+
+        function showStartScreen() {
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        }
+
+        if (keysPressed['w'] || keysPressed['W']) {
+            playerY = Math.max(0, playerY - PADDLE_SPEED);
+        }
+        if (keysPressed['s'] || keysPressed['S']) {
+            playerY = Math.min(340, playerY + PADDLE_SPEED);
+        }
+
+        function updateGame() {
+            // Mover jugador 1 (W/S)
+            if (keysPressed['w'] || keysPressed['W']) {
+                playerY = Math.max(0, playerY - PADDLE_SPEED);
+            }
+            if (keysPressed['s'] || keysPressed['S']) {
+                playerY = Math.min(340, playerY + PADDLE_SPEED);
+            }
+
+            // Manejo de la segunda paleta según el modo de juego
+            if (gameMode === 'multiPlayer') {
+                // Controles para el jugador 2 (flechas)
+                if (keysPressed['ArrowUp']) {
+                    computerY = Math.max(0, computerY - PADDLE_SPEED);
+                }
+                if (keysPressed['ArrowDown']) {
+                    computerY = Math.min(340, computerY + PADDLE_SPEED);
+                }
+            } else {
+                // IA del computador (solo en modo un jugador)
+                const prediction = predictBallPosition();
+                const computerCenter = computerY + 30;
+                
+                if (ballSpeedX > 0) {
+                    if (prediction > computerCenter + 10) {
+                        computerY = Math.min(340, computerY + computerSpeed);
+                    } else if (prediction < computerCenter - 10) {
+                        computerY = Math.max(0, computerY - computerSpeed);
+                    }
+                } else {
+                    // Volver al centro cuando la pelota se aleja
+                    if (computerCenter < 200) {
+                        computerY += computerSpeed * 0.5;
+                    } else if (computerCenter > 200) {
+                        computerY -= computerSpeed * 0.5;
+                    }
+                }
+            }
+
+            // Mover pelota
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            // Colisiones con paredes
+            if (ballY <= 0 || ballY >= 390) {
+                ballSpeedY = -ballSpeedY;
+            }
+
+            // Colisiones con paletas
+            if (ballX <= 30 && ballY > playerY && ballY < playerY + 60) {
+                ballSpeedX = Math.abs(ballSpeedX);
+                adjustBallAngle(ballY - (playerY + 30));
+            }
+            if (ballX >= 760 && ballY > computerY && ballY < computerY + 60) {
+                ballSpeedX = -Math.abs(ballSpeedX);
+                adjustBallAngle(ballY - (computerY + 30));
+            }
+
+            // Puntuación
+            if (ballX <= 0) {
+                computerScore++;
+                resetBall();
+            } else if (ballX >= 790) {
+                playerScore++;
+                resetBall();
+            }
+
+            // Verificar victoria
+            if (playerScore >= WINNING_SCORE || computerScore >= WINNING_SCORE) {
+                gameOver();
+            }
+
+            // Actualizar posiciones
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+            player.style.top = playerY + 'px';
+            computer.style.top = computerY + 'px';
+            updateScore();
+        }
+
+        function predictBallPosition() {
+            if (ballSpeedX <= 0) return computerY + 30; // No predecir si la pelota se aleja
+
+            let futureX = ballX;
+            let futureY = ballY;
+            let futureSpeedY = ballSpeedY;
+
+            // Simular la trayectoria de la pelota
+            while (futureX < 760) {
+                futureX += ballSpeedX;
+                futureY += futureSpeedY;
+
+                // Simular rebotes en las paredes
+                if (futureY <= 0 || futureY >= 390) {
+                    futureSpeedY = -futureSpeedY;
+                }
+            }
+
+            return futureY;
+        }
+
+
+        function adjustBallAngle(relativeIntersectY) {
+            // Ajustar el ángulo basado en dónde golpea la pelota
+            const normalizedIntersect = relativeIntersectY / 30;
+            const maxAngle = 45;
+            const angle = normalizedIntersect * maxAngle;
+            const speed = Math.sqrt(ballSpeedX * ballSpeedX + ballSpeedY * ballSpeedY);
+            
+            ballSpeedX = speed * Math.cos(angle * Math.PI / 180);
+            ballSpeedY = speed * Math.sin(angle * Math.PI / 180);
+            
+            if (ballX > 400) ballSpeedX = -ballSpeedX;
+        }
+
+        function resetBall() {
+            ballX = 400;
+            ballY = 200;
+            ballSpeedX = (Math.random() > 0.5 ? 5 : -5);
+            ballSpeedY = (Math.random() > 0.5 ? 5 : -5);
+        }
+
+        function updateScore() {
+            playerScoreElement.textContent = playerScore;
+            computerScoreElement.textContent = computerScore;
+            finalScoreElement.textContent = `Score: ${playerScore} - ${computerScore}`;
+            
+            if (gameMode === 'multiPlayer') {
+                document.getElementById('playerScore').innerText = `P1: ${playerScore}`;
+                document.getElementById('computerScore').innerText = `P2: ${computerScore}`;
+            } else {
+                document.getElementById('playerScore').innerText = playerScore;
+                document.getElementById('computerScore').innerText = computerScore;
+            }
+        }
+
+        // Ajustar la dificultad gradualmente
+        function adjustDifficulty() {
+            if (gameMode === 'singlePlayer') {
+                // Aumentar velocidad del computador con el tiempo
+                computerSpeed = Math.min(6, 4 + Math.floor((playerScore + computerScore) / 3) * 0.5);
+                
+                // Aumentar velocidad de la pelota
+                const totalScore = playerScore + computerScore;
+                if (totalScore > 5) {
+                    ballSpeedX *= 1.1;
+                    ballSpeedY *= 1.1;
+                }
+            }
+        }
+
+        function gameOver() {
+            clearInterval(gameInterval);
+            gameOverScreen.style.display = 'flex';
+            
+            if (gameMode === 'multiPlayer') {
+                winnerElement.textContent = playerScore > computerScore ? 'Player 1 Wins!' : 'Player 2 Wins!';
+            } else {
+                winnerElement.textContent = playerScore > computerScore ? 'You Win!' : 'Computer Wins!';
+            }
+        }
+
+        // Controles de teclado
+        document.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        // Controles móviles
+        const upBtn = document.getElementById('upBtn');
+        const downBtn = document.getElementById('downBtn');
+
+        upBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keysPressed['ArrowUp'] = true;
+        });
+        upBtn.addEventListener('touchend', () => {
+            keysPressed['ArrowUp'] = false;
+        });
+
+        downBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keysPressed['ArrowDown'] = true;
+        });
+        downBtn.addEventListener('touchend', () => {
+            keysPressed['ArrowDown'] = false;
+        });
+    </script>
+</body>
+</html>
